@@ -13,7 +13,6 @@ import (
 
 const (
 	redisEndpoint = "127.0.0.1:6379"
-	streamName    = "video:redis"
 	streamField   = "blob"
 )
 
@@ -45,19 +44,23 @@ func main() {
 	log.Fatal(srv.ListenAndServe())
 }
 
+func sendIndex(w http.ResponseWriter, r *http.Request) {
+	key := strings.ReplaceAll(r.URL.Path[1:], "/", ":")
+	val, err := client.Get(key).Result()
+	if err != nil {
+		log.Printf("redis GET failed: %s", err.Error())
+		http.Error(w, "reading playlist failed", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(http.StatusOK)
+	w.Write(StringToBytes(val))
+}
+
 func streamMedia(w http.ResponseWriter, r *http.Request) {
 
 	if strings.HasSuffix(r.URL.Path, "m3u8") {
-		key := strings.ReplaceAll(r.URL.Path[1:], "/", ":")
-		val, err := client.Get(key).Result()
-		if err != nil {
-			log.Printf("redis GET failed: %s", err.Error())
-			http.Error(w, "reading playlist failed", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.WriteHeader(http.StatusOK)
-		w.Write(StringToBytes(val))
+		sendIndex(w, r)
 		return
 	}
 
